@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lifeline: Blood Connect</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background: url('b1.jpg') no-repeat center center fixed;
+            background-size: cover;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            color: #333;
+            min-height: 100vh;
+        }
+
+        .nav {
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: fixed;
+            top: 0;
+            z-index: 1001;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 20px;
+        }
+
+        .nav a {
+            color: white;
+            text-decoration: none;
+            font-size: 18px;
+            font-weight: bold;
+            transition: color 0.3s;
+        }
+
+        .nav a:hover {
+            color: #ffd700;
+        }
+
+        .welcome-message {
+            color: white;
+            font-size: 18px;
+            margin-right: 20px;
+        }
+
+        .content {
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            max-width: 800px;
+            margin: 120px 20px 60px 20px;
+            color: white;
+        }
+
+        h1 {
+            font-size: 3em;
+            margin-bottom: 20px;
+            text-align: center;
+            color: #fff;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .grid-item {
+            background: linear-gradient(135deg, #ff416c, #ff4b2b);
+            padding: 25px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s ease;
+        }
+
+        .grid-item:hover {
+            transform: translateY(-5px);
+        }
+
+        .grid-item h3 {
+            color: white;
+            margin-bottom: 15px;
+        }
+
+        .grid-item p {
+            color: #f8f8f8;
+            margin-bottom: 20px;
+        }
+
+        button {
+            background-color: #fff;
+            color: #ff416c;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #ffd700;
+            transform: scale(1.05);
+        }
+
+        .footer {
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 15px;
+            width: 100%;
+            text-align: center;
+            position: fixed;
+            bottom: 0;
+        }
+
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            .content {
+                margin: 100px 10px 40px 10px;
+            }
+
+            h1 {
+                font-size: 2em;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="nav">
+        <div class="welcome-message" id="welcomeMessage"></div>
+        <div class="nav-links">
+            <a href="login.html">Login</a>
+            <a href="signup.html">Sign Up</a>
+            <a href="#" onclick="logout()">Logout</a>
+        </div>
+    </div>
+
+    <div class="content">
+        <h1>Lifeline: Blood Donor Connect</h1>
+
+        <h2 style="text-align: center; color: #ffd700;">Save Lives, Donate Blood</h2>
+        <p style="text-align: center; font-size: 1.2em;">
+            Your contribution can make a difference. Join us in our mission to provide safe and reliable blood to those
+            in need.
+        </p>
+
+        <div class="grid">
+            <div class="grid-item">
+                <h3>Donor Search</h3>
+                <p>Find blood donors matching your requirements quickly and easily.</p>
+                <button onclick="checkAuthAndRedirect('donor-search.html')">Search Donors</button>
+            </div>
+
+            <div class="grid-item">
+                <h3>Register as Donor</h3>
+                <p>Become a blood donor and help save precious lives.</p>
+                <button onclick="window.location.href='register.html'">Register Now</button>
+            </div>
+
+            <div class="grid-item">
+                <h3>Dashboard</h3>
+                <p>View your donation history and manage your profile.</p>
+                <button onclick="checkAuthAndRedirect('dashboard.html')">Go to Dashboard</button>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>&copy; 2024 Lifeline: Blood Connect. All rights reserved.</p>
+    </div>
+
+    <script>
+        function checkAuth() {
+            const token = localStorage.getItem('token');
+            const username = localStorage.getItem('username');
+
+            if (token && username) {
+                document.getElementById('welcomeMessage').innerText = `Welcome, ${username}!`;
+                // Show logout, hide login/signup
+                document.querySelector('a[href="login.html"]').style.display = 'none';
+                document.querySelector('a[href="signup.html"]').style.display = 'none';
+                document.querySelector('a[onclick="logout()"]').style.display = 'block';
+            } else {
+                document.getElementById('welcomeMessage').innerText = 'Welcome, Guest!';
+                // Show login/signup, hide logout
+                document.querySelector('a[href="login.html"]').style.display = 'block';
+                document.querySelector('a[href="signup.html"]').style.display = 'block';
+                document.querySelector('a[onclick="logout()"]').style.display = 'none';
+            }
+        }
+
+        function checkAuthAndRedirect(path) {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                alert('Please login to access this feature');
+                window.location.href = 'login.html';
+                return;
+            }
+            window.location.href = path;
+        }
+
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('username');
+            localStorage.removeItem('userId');
+            window.location.href = 'login.html';
+        }
+
+        // Check auth status when page loads
+        window.addEventListener('load', checkAuth);
+    </script>
+</body>
+
+</html>

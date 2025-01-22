@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Request Blood</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(to right, #ff416c, #ff4b2b);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            width: 400px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #666;
+        }
+
+        input,
+        select,
+        textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        textarea {
+            height: 100px;
+            resize: vertical;
+        }
+
+        button {
+            background-color: #ff416c;
+            color: white;
+            padding: 12px;
+            border: none;
+            border-radius: 4px;
+            width: 100%;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        button:hover {
+            background-color: #ff4b2b;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Request Blood</h1>
+        <form id="requestForm">
+            <div class="form-group">
+                <label for="requiredUnits">Required Units</label>
+                <input type="number" id="requiredUnits" required min="1">
+            </div>
+
+            <div class="form-group">
+                <label for="urgency">Urgency Level</label>
+                <select id="urgency" required>
+                    <option value="Normal">Normal</option>
+                    <option value="Urgent">Urgent</option>
+                    <option value="Emergency">Emergency</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="message">Message to Donor</label>
+                <textarea id="message" required></textarea>
+            </div>
+
+            <button type="submit">Send Request</button>
+        </form>
+    </div>
+
+    <script>
+        document.getElementById('requestForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const donorId = urlParams.get('donorId');
+            const token = localStorage.getItem('token');
+
+            if (!token) {
+                alert('Please log in to request blood');
+                window.location.href = 'login.html';
+                return;
+            }
+
+            const requestData = {
+                donorId: donorId,
+                requiredUnits: document.getElementById('requiredUnits').value,
+                urgency: document.getElementById('urgency').value,
+                message: document.getElementById('message').value
+            };
+
+            try {
+                const response = await fetch('http://localhost:3001/blood-request', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(requestData)
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to send request');
+                }
+
+                alert('Blood request sent successfully!');
+                window.location.href = 'donor-search.html';
+            } catch (error) {
+                alert('Error sending request: ' + error.message);
+                console.error('Request error:', error);
+            }
+        });
+    </script>
+</body>
+
+</html>

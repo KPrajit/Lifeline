@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(to right, #ff416c, #ff4b2b);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .tab-button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            background: #f0f0f0;
+            cursor: pointer;
+            font-weight: bold;
+            flex: 1;
+        }
+
+        .tab-button.active {
+            background: #ff416c;
+            color: white;
+        }
+
+        h1,
+        h2 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+
+        .request-card {
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .request-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .urgency {
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+
+        .urgency.Emergency {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .urgency.Urgent {
+            background-color: #ffc107;
+        }
+
+        .urgency.Normal {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .request-details {
+            margin-bottom: 15px;
+        }
+
+        .status-badge {
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+
+        .status-pending {
+            background-color: #ffc107;
+        }
+
+        .status-accepted {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .status-rejected {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .nav-bar {
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .nav-link {
+            color: #ff416c;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+
+        .nav-link:hover {
+            background-color: #ff416c;
+            color: white;
+        }
+
+        .request-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .accept-btn,
+        .reject-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            color: white;
+        }
+
+        .accept-btn {
+            background-color: #28a745;
+        }
+
+        .reject-btn {
+            background-color: #dc3545;
+        }
+
+        .no-requests {
+            text-align: center;
+            color: #666;
+            padding: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="nav-bar">
+        <a href="index.html" class="nav-link">Home</a>
+        <a href="donor-search.html" class="nav-link">Search Donors</a>
+        <a href="#" id="logoutBtn" class="nav-link">Logout</a>
+    </div>
+
+    <div class="container">
+        <h1>Dashboard</h1>
+
+        <div class="tabs">
+            <button type="button" class="tab-button active" onclick="showTab('received', event)">Received
+                Requests</button>
+            <button type="button" class="tab-button" onclick="showTab('sent', event)">Sent Requests</button>
+        </div>
+
+        <div id="receivedRequests" class="tab-content">
+            <h2>Requests Received</h2>
+            <div id="receivedContainer">
+                <div class="no-requests">Loading requests...</div>
+            </div>
+        </div>
+
+        <div id="sentRequests" class="tab-content" style="display: none;">
+            <h2>Requests Sent</h2>
+            <div id="sentContainer">
+                <div class="no-requests">Loading requests...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showTab(tabName, event) {
+            // Update button states
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('active');
+            });
+            if (event && event.target) {
+                event.target.classList.add('active');
+            }
+
+            // Show/hide content
+            document.getElementById('receivedRequests').style.display = tabName === 'received' ? 'block' : 'none';
+            document.getElementById('sentRequests').style.display = tabName === 'sent' ? 'block' : 'none';
+        }
+
+        async function loadReceivedRequests() {
+            const token = localStorage.getItem('token');
+            try {
+                const response = await fetch('http://localhost:3001/donor-requests', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+
+                const container = document.getElementById('receivedContainer');
+                if (!data || data.length === 0) {
+                    container.innerHTML = '<div class="no-requests">No requests received.</div>';
+                    return;
+                }
+
+                container.innerHTML = data.map(request => `
+                    <div class="request-card">
+                        <div class="request-header">
+                            <div>
+                                <h3>Request from ${request.requesterId.username}</h3>
+                                <p>Email: ${request.requesterId.email}</p>
+                            </div>
+                            <span class="urgency ${request.urgency}">${request.urgency}</span>
+                        </div>
+                        <div class="request-details">
+                            <p>Required Units: ${request.requiredUnits}</p>
+                            <p>Message: ${request.message}</p>
+                            <p>Status: <span class="status-badge status-${request.status.toLowerCase()}">${request.status}</span></p>
+                            <p>Requested on: ${new Date(request.createdAt).toLocaleString()}</p>
+                        </div>
+                        ${request.status === 'pending' ? `
+                            <div class="request-actions">
+                                <button class="accept-btn" onclick="updateRequestStatus('${request._id}', 'accepted')">Accept</button>
+                                <button class="reject-btn" onclick="updateRequestStatus('${request._id}', 'rejected')">Reject</button>
+                            </div>
+                        ` : ''}
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading received requests:', error);
+                document.getElementById('receivedContainer').innerHTML =
+                    `<div class="no-requests">Error loading requests: ${error.message}</div>`;
+            }
+        }
+
+        async function loadSentRequests() {
+            const token = localStorage.getItem('token');
+            try {
+                const response = await fetch('http://localhost:3001/seeker-requests', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+
+                const container = document.getElementById('sentContainer');
+                if (!data || data.length === 0) {
+                    container.innerHTML = '<div class="no-requests">No requests sent.</div>';
+                    return;
+                }
+
+                container.innerHTML = data.map(request => `
+                    <div class="request-card">
+                        <div class="request-header">
+                            <div>
+                                <h3>Request to ${request.donorId ? request.donorId.name : 'Unknown Donor'}</h3>
+                                <p>Donor Contact: ${request.donorId ? request.donorId.contact : 'N/A'}</p>
+                                <p>Donor Email: ${request.donorId ? request.donorId.email : 'N/A'}</p>
+                            </div>
+                            <span class="urgency ${request.urgency}">${request.urgency}</span>
+                        </div>
+                        <div class="request-details">
+                            <p>Required Units: ${request.requiredUnits}</p>
+                            <p>Your Message: ${request.message}</p>
+                            <p>Status: <span class="status-badge status-${request.status.toLowerCase()}">${request.status}</span></p>
+                            <p>Requested on: ${new Date(request.createdAt).toLocaleString()}</p>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading sent requests:', error);
+                document.getElementById('sentContainer').innerHTML =
+                    `<div class="no-requests">Error loading requests: ${error.message}</div>`;
+            }
+        }
+
+        async function updateRequestStatus(requestId, status) {
+            const token = localStorage.getItem('token');
+            try {
+                const response = await fetch(`http://localhost:3001/blood-request/${requestId}/status`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ status })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to update request status');
+                }
+
+                alert(`Request ${status} successfully`);
+                loadReceivedRequests(); // Reload the requests
+            } catch (error) {
+                console.error('Error updating request:', error);
+                alert('Failed to update request status');
+            }
+        }
+
+        // Load both types of requests when page loads
+        loadReceivedRequests();
+        loadSentRequests();
+
+        // Logout functionality
+        document.getElementById('logoutBtn').addEventListener('click', function () {
+            localStorage.removeItem('token');
+            localStorage.removeItem('username');
+            window.location.href = 'login.html';
+        });
+    </script>
+</body>
+
+</html>

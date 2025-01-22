@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search Donors</title>
+    <script src='https://api.mapbox.com/mapbox-gl-js/v2.9.1/mapbox-gl.js'></script>
+    <link href='https://api.mapbox.com/mapbox-gl-js/v2.9.1/mapbox-gl.css' rel='stylesheet' />
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+            height: 100vh;
+        }
+
+        .filter-container {
+            position: fixed;
+            top: 20px;
+            left: 250px;
+            background: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            z-index: 1;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            max-width: calc(100% - 280px);
+        }
+
+        .filter-container label {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .filter-container select,
+        .filter-container input {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            min-width: 120px;
+        }
+
+        #filterButton {
+            background-color: #ff416c;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+
+        #filterButton:hover {
+            background-color: #ff4b2b;
+        }
+
+        .marker {
+            background-color: #ff4b2b;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .mapboxgl-popup {
+            max-width: 200px;
+        }
+
+        .return-button {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background-color: #ff416c;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 2;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            width: 200px;
+            text-align: center;
+        }
+
+        .return-button:hover {
+            background-color: #ff4b2b;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        @media screen and (max-width: 1200px) {
+            .filter-container {
+                flex-wrap: wrap;
+                max-width: calc(100% - 240px);
+            }
+        }
+
+        @media screen and (max-width: 768px) {
+            .filter-container {
+                left: 20px;
+                top: 80px;
+                max-width: calc(100% - 40px);
+            }
+        }
+
+        .blood-bank-marker {
+            background-color: #3498db;
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid white;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Add a legend to distinguish between markers */
+        .map-legend {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            padding: 10px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            z-index: 1;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 5px 0;
+        }
+
+        .legend-marker {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+    <div class="filter-container">
+        <div>
+            <label for="bloodTypeFilter">Blood Type:</label>
+            <select id="bloodTypeFilter">
+                <option value="all">All</option>
+                <option value="A+">A+</option>
+                <option value="A-">A-</option>
+                <option value="B+">B+</option>
+                <option value="B-">B-</option>
+                <option value="O+">O+</option>
+                <option value="O-">O-</option>
+                <option value="AB+">AB+</option>
+                <option value="AB-">AB-</option>
+            </select>
+        </div>
+        <div>
+            <label for="location">Location:</label>
+            <input type="text" id="location" placeholder="Enter location">
+        </div>
+        <div>
+            <label for="radius">Radius (km):</label>
+            <input type="number" id="radius" placeholder="Enter radius">
+        </div>
+        <button id="filterButton">Apply Filter</button>
+    </div>
+
+    <a href="index.html" class="return-button">Return to Home</a>
+
+    <script>
+        mapboxgl.accessToken = 'pk.eyJ1IjoicHJhaml0ayIsImEiOiJjbTJkZ3dnbnQwZ2V6MmtzYjJ0OHB1MXJlIn0.wDuuekeM9f2DONO7d1kylw';
+
+        // Initialize map
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/streets-v11',
+            center: [78.9629, 20.5937], // Center of India
+            zoom: 4
+        });
+
+        // Separate arrays for different types of markers
+        let donorMarkers = [];  // For donor markers
+        let bloodBankMarkers = []; // For blood bank markers
+        let donors = [];
+        let bloodBanks = [];
+
+        // Function to add markers for donors
+        async function addDonorMarkers() {
+            try {
+                // Clear only donor markers
+                donorMarkers.forEach(marker => marker.remove());
+                donorMarkers = [];
+
+                const response = await fetch('http://localhost:3001/donors');
+                const donors = await response.json();
+
+                donors.forEach(donor => {
+                    const el = document.createElement('div');
+                    el.className = 'marker';
+
+                    const popup = new mapboxgl.Popup({ offset: 25 })
+                        .setHTML(
+                            `<div style="padding: 10px;">
+                                <h3>${donor.name}</h3>
+                                <p>Blood Group: ${donor.bloodGroup}</p>
+                                <p>Contact: ${donor.contact}</p>
+                                <p>Address: ${donor.address}</p>
+                                <p><a href="mailto:${donor.email}" style="color: #0066cc; text-decoration: underline;">
+                                    ${donor.email}
+                                </a></p>
+                                <button onclick="requestBlood('${donor._id}')" 
+                                        style="background-color: #ff416c; 
+                                               color: white; 
+                                               padding: 8px 16px; 
+                                               border: none; 
+                                               border-radius: 4px; 
+                                               cursor: pointer;
+                                               margin-top: 10px;
+                                               width: 100%;">
+                                    Request Blood
+                                </button>
+                            </div>`
+                        );
+
+                    const marker = new mapboxgl.Marker(el)
+                        .setLngLat([donor.longitude, donor.latitude])
+                        .setPopup(popup)
+                        .addTo(map);
+
+                    donorMarkers.push(marker);
+                });
+
+                // Modified bounds fitting with custom options
+                if (donors.length > 0) {
+                    const bounds = new mapboxgl.LngLatBounds();
+                    donors.forEach(donor => {
+                        bounds.extend([donor.longitude, donor.latitude]);
+                    });
+
+                    // If there's only one donor, zoom to their location
+                    if (donors.length === 1) {
+                        map.flyTo({
+                            center: [donors[0].longitude, donors[0].latitude],
+                            zoom: 11,
+                            duration: 1000
+                        });
+                    } else {
+                        // For multiple donors, fit bounds
+                        map.fitBounds(bounds, {
+                            padding: { top: 50, bottom: 50, left: 50, right: 50 },
+                            maxZoom: 12,
+                            duration: 1000
+                        });
+                    }
+                }
+
+            } catch (error) {
+                console.error('Error loading donors:', error);
+            }
+        }
+
+        // Add markers when map loads
+        map.on('load', () => {
+            // First load blood banks
+            fetch('http://localhost:3001/bloodbanks')
+                .then(response => response.json())
+                .then(data => {
+                    bloodBanks = data;
+                    addBloodBankMarkers(bloodBanks);
+                    // Then load donors
+                    addDonorMarkers();
+                })
+                .catch(error => console.error('Error fetching blood banks:', error));
+        });
+
+        function addBloodBankMarkers(bloodBanks) {
+            bloodBanks.forEach(bank => {
+                if (bank.longitude && bank.latitude) {
+                    const el = document.createElement('div');
+                    el.className = 'blood-bank-marker';
+
+                    const popupContent = `
+                        <div style="padding: 10px;">
+                            <h3 style="color: #2c3e50;">${bank.name}</h3>
+                            <p><strong>Address:</strong> ${bank.address}</p>
+                            <p><strong>Contact:</strong> ${bank.contact}</p>
+                        </div>`;
+
+                    const marker = new mapboxgl.Marker({
+                        element: el,
+                        color: '#3498db'
+                    })
+                        .setLngLat([bank.longitude, bank.latitude])
+                        .setPopup(new mapboxgl.Popup({ offset: 25 }).setHTML(popupContent))
+                        .addTo(map);
+
+                    bloodBankMarkers.push(marker);
+                }
+            });
+        }
+
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            function toRad(x) {
+                return x * Math.PI / 180;
+            }
+
+            const R = 6371; // Radius of the Earth in km
+            const dLat = toRad(lat2 - lat1);
+            const dLon = toRad(lon2 - lon1);
+
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c; // Distance in km
+        }
+
+        function applyFilters() {
+            const bloodType = document.getElementById('bloodTypeFilter').value;
+            const location = document.getElementById('location').value;
+            const radius = document.getElementById('radius').value;
+
+            // Remove only donor markers
+            donorMarkers.forEach(marker => marker.remove());
+            donorMarkers = [];
+
+            // Fetch all donors again
+            fetch('http://localhost:3001/donors')
+                .then(response => response.json())
+                .then(donors => {
+                    // Filter by blood type
+                    let filteredDonors = donors;
+                    if (bloodType !== 'all') {
+                        filteredDonors = donors.filter(donor => donor.bloodGroup === bloodType);
+                    }
+
+                    // If location and radius are provided, filter by distance
+                    if (location && radius) {
+                        // First geocode the entered location
+                        const geocodeUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(location)}.json?access_token=${mapboxgl.accessToken}`;
+
+                        fetch(geocodeUrl)
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.features && data.features.length > 0) {
+                                    const searchLocation = data.features[0].center; // [lng, lat]
+
+                                    // Filter donors within radius
+                                    filteredDonors = filteredDonors.filter(donor => {
+                                        const distance = calculateDistance(
+                                            searchLocation[1], // latitude
+                                            searchLocation[0], // longitude
+                                            donor.latitude,
+                                            donor.longitude
+                                        );
+                                        return distance <= parseFloat(radius);
+                                    });
+
+                                    // Add markers for filtered donors
+                                    addFilteredDonorMarkers(filteredDonors);
+
+                                    if (filteredDonors.length > 0) {
+                                        const bounds = new mapboxgl.LngLatBounds();
+                                        filteredDonors.forEach(donor => {
+                                            bounds.extend([donor.longitude, donor.latitude]);
+                                        });
+
+                                        // If there's only one donor after filtering, zoom to them
+                                        if (filteredDonors.length === 1) {
+                                            map.flyTo({
+                                                center: [filteredDonors[0].longitude, filteredDonors[0].latitude],
+                                                zoom: 11,
+                                                duration: 1000
+                                            });
+                                        } else {
+                                            // For multiple donors, fit bounds
+                                            map.fitBounds(bounds, {
+                                                padding: { top: 50, bottom: 50, left: 50, right: 50 },
+                                                maxZoom: 12,
+                                                duration: 1000
+                                            });
+                                        }
+                                    }
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error geocoding location:', error);
+                                alert('Could not find the specified location');
+                            });
+                    } else {
+                        // If no location filter, just add markers for blood type filtered donors
+                        addFilteredDonorMarkers(filteredDonors);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching donors:', error);
+                    alert('Error fetching donors');
+                });
+        }
+
+        function addFilteredDonorMarkers(donors) {
+            donors.forEach(donor => {
+                // Create marker element
+                const el = document.createElement('div');
+                el.className = 'marker';
+
+                // Create popup
+                const popup = new mapboxgl.Popup({ offset: 25 })
+                    .setHTML(
+                        `<div style="padding: 10px;">
+                            <h3>${donor.name}</h3>
+                            <p>Blood Group: ${donor.bloodGroup}</p>
+                            <p>Contact: ${donor.contact}</p>
+                            <p>Address: ${donor.address}</p>
+                            <p><a href="mailto:${donor.email}" style="color: #0066cc; text-decoration: underline;">
+                                ${donor.email}
+                            </a></p>
+                            <button onclick="requestBlood('${donor._id}')" 
+                                    style="background-color: #ff416c; 
+                                           color: white; 
+                                           padding: 8px 16px; 
+                                           border: none; 
+                                           border-radius: 4px; 
+                                           cursor: pointer;
+                                           margin-top: 10px;
+                                           width: 100%;">
+                                Request Blood
+                            </button>
+                        </div>`
+                    );
+
+                // Add marker to map
+                const marker = new mapboxgl.Marker(el)
+                    .setLngLat([donor.longitude, donor.latitude])
+                    .setPopup(popup)
+                    .addTo(map);
+
+                // Store in donorMarkers instead of markers array
+                donorMarkers.push(marker);
+            });
+        }
+
+        document.getElementById('filterButton').addEventListener('click', applyFilters);
+        document.getElementById('bloodTypeFilter').addEventListener('change', applyFilters);
+
+        // Add the requestBlood function
+        function requestBlood(donorId) {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                alert('Please log in to request blood');
+                window.location.href = 'login.html';
+                return;
+            }
+            window.location.href = `request-blood.html?donorId=${donorId}`;
+        }
+
+        fetch('http://localhost:3001/bloodbanks', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                name: "City Blood Bank",
+                address: "123 Main Street",
+                contact: "555-0123",
+                latitude: 20.5937,  // Example coordinates (India)
+                longitude: 78.9629
+            })
+        })
+            .then(response => response.json())
+            .then(data => console.log(data))
+            .catch(error => console.error('Error:', error));
+    </script>
+</body>
+
+</html>
